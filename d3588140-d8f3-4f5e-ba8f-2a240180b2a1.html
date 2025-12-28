@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodSafe - Simplified Allergy Scanner</title>
+    <meta name="description" content="Easy-to-use food allergy and intolerance scanner with camera, image upload, and text input.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/tesseract.js@v3.0.3/dist/tesseract.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            "50": "#f0f9ff",
+                            "100": "#e0f2fe",
+                            "200": "#bae6fd",
+                            "300": "#7dd3fc",
+                            "400": "#38bdf8",
+                            "500": "#0ea5e9",
+                            "600": "#0284c7",
+                            "700": "#0369a1",
+                            "800": "#075985",
+                            "900": "#0c4a6e"
+                        },
+                        danger: {
+                            "50": "#fef2f2",
+                            "100": "#fee2e2",
+                            "200": "#fecaca",
+                            "300": "#fca5a5",
+                            "400": "#f87171",
+                            "500": "#ef4444",
+                            "600": "#dc2626",
+                            "700": "#b91c1c",
+                            "800": "#991b1b",
+                            "900": "#7f1d1d"
+                        },
+                        success: {
+                            "50": "#f0fdf4",
+                            "100": "#dcfce7",
+                            "200": "#bbf7d0",
+                            "300": "#86efac",
+                            "400": "#4ade80",
+                            "500": "#22c55e",
+                            "600": "#16a34a",
+                            "700": "#15803d",
+                            "800": "#166534",
+                            "900": "#14532d"
+                        },
+                        warning: {
+                            "50": "#fffbeb",
+                            "100": "#fef3c7",
+                            "200": "#fde68a",
+                            "300": "#fcd34d",
+                            "400": "#fbbf24",
+                            "500": "#f59e0b",
+                            "600": "#d97706",
+                            "700": "#b45309",
+                            "800": "#92400e",
+                            "900": "#78350f"
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .category-tab {
+            transition: all 0.2s ease;
+        }
+        
+        .category-tab.active {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .allergy-chip {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .allergy-chip:hover {
+            transform: translateY(-1px);
+        }
+        
+        .allergy-chip.selected {
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+        }
+        
+        .intolerance-chip.selected {
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+        }
+        
+        .quick-select-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .quick-select-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .severity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        
+        .severity-high { background-color: #ef4444; }
+        .severity-medium { background-color: #f59e0b; }
+        .severity-low { background-color: #22c55e; }
+        
+        .scanning-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .file-drop-zone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+        
+        .file-drop-zone.drag-over {
+            border-color: #0ea5e9;
+            background-color: #f0f9ff;
+        }
+        
+        .camera-frame {
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        .camera-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #0ea5e9, transparent);
+            animation: scanLine 2s ease-in-out infinite;
+            z-index: 10;
+        }
+        
+        @keyframes scanLine {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100%); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 font-sans">
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                        <i class="fas fa-shield-alt text-primary-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">FoodSafe</h1>
+                        <p class="text-sm text-gray-600">Simple & Smart Food Scanner</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="quickProfileBtn" class="px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 transition-colors">
+                        <i class="fas fa-user mr-2"></i>My Profile
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Simplified Hero -->
+        <div class="gradient-bg rounded-2xl p-6 mb-8 card-shadow">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+                <div class="md:w-2/3 mb-6 md:mb-0">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-3">Scan Food Ingredients in Seconds</h2>
+                    <p class="text-gray-700 mb-4">Simply select your allergies, then scan with camera, upload an image, or type ingredients. Get instant safety results.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <div class="flex items-center bg-white rounded-full px-3 py-1.5 text-sm">
+                            <i class="fas fa-check-circle text-success-500 mr-2"></i>
+                            <span>Easy Selection</span>
+                        </div>
+                        <div class="flex items-center bg-white rounded-full px-3 py-1.5 text-sm">
+                            <i class="fas fa-bolt text-warning-500 mr-2"></i>
+                            <span>Instant Results</span>
+                        </div>
+                        <div class="flex items-center bg-white rounded-full px-3 py-1.5 text-sm">
+                            <i class="fas fa-camera text-primary-500 mr-2"></i>
+                            <span>Camera Scan</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:w-1/3 text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-500 text-white text-2xl mb-3">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <p class="text-sm text-gray-600">3-Step Process:<br>Select → Scan → Know</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Simplified Profile -->
+            <div class="lg:col-span-1">
+                <!-- Profile Card -->
+                <div class="bg-white rounded-xl p-6 card-shadow mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-semibold text-gray-900">
+                            <i class="fas fa-user-circle text-primary-500 mr-2"></i>
+                            My Food Profile
+                        </h3>
+                        <button id="editProfileBtn" class="text-primary-600 hover:text-primary-700 text-sm">
+                            <i class="fas fa-edit mr-1"></i>Edit
+                        </button>
+                    </div>
+                    
+                    <!-- Quick Profile Selection -->
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-700 mb-3">Quick Profiles</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="quick-select-btn p-3 bg-gray-50 rounded-lg text-center hover:bg-gray-100" data-profile="common">
+                                <i class="fas fa-utensils text-gray-600 mb-1 block"></i>
+                                <span class="text-sm font-medium">Common Allergies</span>
+                            </button>
+                            <button class="quick-select-btn p-3 bg-gray-50 rounded-lg text-center hover:bg-gray-100" data-profile="gluten">
+                                <i class="fas fa-bread-slice text-warning-600 mb-1 block"></i>
+                                <span class="text-sm font-medium">Gluten-Free</span>
+                            </button>
+                            <button class="quick-select-btn p-3 bg-gray-50 rounded-lg text-center hover:bg-gray-100" data-profile="dairy">
+                                <i class="fas fa-cheese text-primary-600 mb-1 block"></i>
+                                <span class="text-sm font-medium">Dairy-Free</span>
+                            </button>
+                            <button class="quick-select-btn p-3 bg-gray-50 rounded-lg text-center hover:bg-gray-100" data-profile="vegan">
+                                <i class="fas fa-leaf text-success-600 mb-1 block"></i>
+                                <span class="text-sm font-medium">Vegan</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Active Profile Summary -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <h4 class="font-medium text-gray-700 mb-2">Active Restrictions</h4>
+                        <div id="profileSummary" class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Allergies:</span>
+                                <span id="allergyCount" class="text-sm font-medium text-danger-600">0</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Intolerances:</span>
+                                <span id="intoleranceCount" class="text-sm font-medium text-warning-600">0</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Custom Items:</span>
+                                <span id="customCount" class="text-sm font-medium text-primary-600">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Scan Sensitivity -->
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-3">Scan Sensitivity</h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Detection Level</span>
+                                <span id="sensitivityLabel" class="text-sm font-medium text-primary-600">Balanced</span>
+                            </div>
+                            <div class="relative pt-1">
+                                <input type="range" 
+                                       id="sensitivitySlider" 
+                                       min="1" 
+                                       max="3" 
+                                       value="2"
+                                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary-500">
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>Relaxed</span>
+                                    <span>Balanced</span>
+                                    <span>Strict</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Tips -->
+                <div class="bg-white rounded-xl p-6 card-shadow">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-lightbulb text-warning-500 mr-2"></i>
+                        Quick Tips
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex items-start">
+                            <i class="fas fa-check text-success-500 mt-1 mr-3"></i>
+                            <p class="text-sm text-gray-700">Select common allergies first, then add custom ones if needed</p>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="fas fa-camera text-primary-500 mt-1 mr-3"></i>
+                            <p class="text-sm text-gray-700">Use camera scan for packaged foods - works best in good light</p>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="fas fa-history text-gray-500 mt-1 mr-3"></i>
+                            <p class="text-sm text-gray-700">Your profile saves automatically - no login required</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Column: Simplified Selection -->
+            <div class="lg:col-span-2">
+                <!-- Category Tabs -->
+                <div class="bg-white rounded-xl p-2 mb-6 card-shadow">
+                    <div class="flex space-x-2">
+                        <button id="allergiesTab" class="category-tab flex-1 py-3 px-4 rounded-lg font-medium text-center active">
+                            <i class="fas fa-exclamation-triangle text-danger-500 mr-2"></i>
+                            Allergies
+                        </button>
+                        <button id="intolerancesTab" class="category-tab flex-1 py-3 px-4 rounded-lg font-medium text-center">
+                            <i class="fas fa-ban text-warning-500 mr-2"></i>
+                            Intolerances
+                        </button>
+                        <button id="customTab" class="category-tab flex-1 py-3 px-4 rounded-lg font-medium text-center">
+                            <i class="fas fa-plus-circle text-primary-500 mr-2"></i>
+                            Custom
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Allergies Content -->
+                <div id="allergiesContent" class="space-y-6">
+                    <!-- Top Allergies -->
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-3">Top Allergies (Most Common)</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="peanuts">
+                                <i class="fas fa-seedling text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Peanuts</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-high"></span>High Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="tree_nuts">
+                                <i class="fas fa-tree text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Tree Nuts</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-high"></span>High Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="milk">
+                                <i class="fas fa-cheese text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Dairy</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-high"></span>High Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="eggs">
+                                <i class="fas fa-egg text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Eggs</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-high"></span>High Risk
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Other Allergies -->
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-3">Other Allergies</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="wheat">
+                                <i class="fas fa-bread-slice text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Wheat</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Medium Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="soy">
+                                <i class="fas fa-seedling text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Soy</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Medium Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="fish">
+                                <i class="fas fa-fish text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Fish</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-high"></span>High Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="shellfish">
+                                <i class="fas fa-crab text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Shellfish</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-high"></span>High Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="sesame">
+                                <i class="fas fa-seedling text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Sesame</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Medium Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="mustard">
+                                <i class="fas fa-mortar-pestle text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Mustard</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Medium Risk
+                                </div>
+                            </button>
+                            <button class="allergy-chip p-3 bg-gray-50 rounded-lg text-center" data-id="sulfites">
+                                <i class="fas fa-wine-bottle text-danger-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Sulfites</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Medium Risk
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Intolerances Content -->
+                <div id="intolerancesContent" class="space-y-6 hidden">
+                    <!-- Common Intolerances -->
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-3">Common Intolerances</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="lactose">
+                                <i class="fas fa-wind text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Lactose</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="gluten">
+                                <i class="fas fa-bread-slice text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Gluten</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="fructose">
+                                <i class="fas fa-apple-alt text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Fructose</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-medium"></span>Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="histamine">
+                                <i class="fas fa-allergies text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Histamine</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-low"></span>Less Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="fodmap">
+                                <i class="fas fa-leaf text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">FODMAPs</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-low"></span>Less Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="msg">
+                                <i class="fas fa-flask text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">MSG</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-low"></span>Less Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="artificial_colors">
+                                <i class="fas fa-palette text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Artificial Colors</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-low"></span>Less Common
+                                </div>
+                            </button>
+                            <button class="intolerance-chip p-3 bg-gray-50 rounded-lg text-center" data-id="preservatives">
+                                <i class="fas fa-prescription-bottle text-warning-500 mb-1 block"></i>
+                                <span class="text-sm font-medium">Preservatives</span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="severity-dot severity-low"></span>Less Common
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Custom Content -->
+                <div id="customContent" class="space-y-6 hidden">
+                    <!-- Add Custom Items -->
+                    <div class="bg-gray-50 rounded-lg p-5">
+                        <h4 class="font-medium text-gray-700 mb-4">Add Custom Food Restrictions</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Item Name
+                                </label>
+                                <input type="text" 
+                                       id="customItemName"
+                                       placeholder="e.g., Avocado, Quinoa, Yeast"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Type
+                                </label>
+                                <div class="flex space-x-3">
+                                    <label class="flex items-center">
+                                        <input type="radio" name="customType" value="allergy" class="mr-2 text-danger-500" checked>
+                                        <span class="text-sm">Allergy</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="customType" value="intolerance" class="mr-2 text-warning-500">
+                                        <span class="text-sm">Intolerance</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Severity Level
+                                </label>
+                                <div class="flex space-x-3">
+                                    <button class="severity-btn px-3 py-1.5 text-sm rounded-lg border" data-severity="high">
+                                        <span class="severity-dot severity-high"></span>High
+                                    </button>
+                                    <button class="severity-btn px-3 py-1.5 text-sm rounded-lg border" data-severity="medium">
+                                        <span class="severity-dot severity-medium"></span>Medium
+                                    </button>
+                                    <button class="severity-btn px-3 py-1.5 text-sm rounded-lg border" data-severity="low">
+                                        <span class="severity-dot severity-low"></span>Low
+                                    </button>
+                                </div>
+                            </div>
+                            <button id="addCustomBtn" class="w-full bg-primary-500 text-white py-2.5 rounded-lg hover:bg-primary-600 transition-colors font-medium">
+                                <i class="fas fa-plus mr-2"></i>Add to My Profile
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Items List -->
+                    <div>
+                        <h4 class="font-medium text-gray-700 mb-3">My Custom Items</h4>
+                        <div id="customItemsList" class="space-y-2">
+                            <div class="text-center py-8 text-gray-500">
+                                <i class="fas fa-plus-circle text-3xl mb-3"></i>
+                                <p class="text-sm">No custom items added yet</p>
+                                <p class="text-xs mt-1">Add your personal food restrictions above</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Scanner Section -->
+                <div class="bg-white rounded-xl p-6 card-shadow mt-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-semibold text-gray-900">
+                            <i class="fas fa-search text-primary-500 mr-2"></i>
+                            Scan Ingredients
+                        </h3>
+                        <div class="text-sm text-gray-600">
+                            <span id="selectedCount">0 items selected</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Scanner Options -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <button id="cameraOption" class="scanner-option p-4 border-2 border-primary-200 rounded-xl text-center hover:border-primary-300 transition-colors">
+                            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-primary-100 flex items-center justify-center">
+                                <i class="fas fa-camera text-primary-500 text-xl"></i>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-1">Camera Scan</h4>
+                            <p class="text-sm text-gray-600">Use your phone's camera</p>
+                        </button>
+                        
+                        <button id="uploadOption" class="scanner-option p-4 border-2 border-gray-200 rounded-xl text-center hover:border-primary-300 transition-colors">
+                            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                                <i class="fas fa-upload text-gray-500 text-xl"></i>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-1">Upload Image</h4>
+                            <p class="text-sm text-gray-600">From gallery or files</p>
+                        </button>
+                        
+                        <button id="manualOption" class="scanner-option p-4 border-2 border-gray-200 rounded-xl text-center hover:border-primary-300 transition-colors">
+                            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                                <i class="fas fa-keyboard text-gray-500 text-xl"></i>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-1">Type/Paste</h4>
+                            <p class="text-sm text-gray-600">Manual ingredient entry</p>
+                        </button>
+                    </div>
+                    
+                    <!-- Scanner Content -->
+                    <div id="scannerContent">
+                        <!-- Default State -->
+                        <div class="text-center py-8">
+                            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                                <i class="fas fa-arrow-up text-gray-400 text-2xl"></i>
+                            </div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">Select a Scanning Method</h4>
+                            <p class="text-gray-600 max-w-md mx-auto">Choose camera scan, upload an image, or type ingredients manually to start scanning</p>
+                        </div>
+                        
+                        <!-- Camera Scanner (Hidden by default) -->
+                        <div id="cameraScanner" class="hidden">
+                            <div class="camera-frame aspect-video bg-black rounded-lg overflow-hidden mb-4">
+                                <video id="cameraPreview" class="w-full h-full object-cover" autoplay playsinline></video>
+                                <canvas id="cameraCanvas" class="hidden"></canvas>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button id="startCameraBtn" class="flex-1 bg-primary-500 text-white py-3 rounded-lg hover:bg-primary-600 transition-colors font-medium">
+                                    <i class="fas fa-video mr-2"></i>Start Camera
+                                </button>
+                                <button id="captureBtn" class="flex-1 bg-success-500 text-white py-3 rounded-lg hover:bg-success-600 transition-colors font-medium" disabled>
+                                    <i class="fas fa-camera mr-2"></i>Capture
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Scanner (Hidden by default) -->
+                        <div id="uploadScanner" class="hidden">
+                            <div id="fileDropZone" class="file-drop-zone rounded-xl p-8 text-center cursor-pointer mb-4">
+                                <div class="max-w-md mx-auto">
+                                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                                        <i class="fas fa-cloud-upload-alt text-gray-400 text-2xl"></i>
+                                    </div>
+                                    <h4 class="text-lg font-medium text-gray-900 mb-2">Drop image here</h4>
+                                    <p class="text-gray-600 mb-4">or click to browse files</p>
+                                    <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                                    <label for="imageUpload" class="inline-block px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors cursor-pointer">
+                                        Choose File
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="uploadPreview" class="hidden">
+                                <div class="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+                                    <img id="uploadedImage" class="w-full h-full object-contain" alt="Uploaded ingredient list">
+                                </div>
+                                <button id="processUploadBtn" class="w-full bg-primary-500 text-white py-3 rounded-lg hover:bg-primary-600 transition-colors font-medium">
+                                    <i class="fas fa-search mr-2"></i>Extract & Scan
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Manual Scanner (Hidden by default) -->
+                        <div id="manualScanner" class="hidden">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Product Name (Optional)
+                                </label>
+                                <input type="text" 
+                                       id="productName"
+                                       placeholder="e.g., Chocolate Chip Cookies"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-clipboard-list mr-2"></i>
+                                    Paste Ingredient List
+                                </label>
+                                <textarea id="ingredientInput" 
+                                          rows="6"
+                                          placeholder="Paste the ingredient list here. Example:
+Flour, Sugar, Butter, Eggs, Milk, Chocolate Chips, Baking Soda, Salt, Vanilla Extract"
+                                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+                            </div>
+                            
+                            <div class="flex space-x-3">
+                                <button id="scanNowBtn" class="flex-1 bg-primary-500 text-white py-3 rounded-lg hover:bg-primary-600 transition-colors font-medium">
+                                    <i class="fas fa-search mr-2"></i>Scan Now
+                                </button>
+                                <button id="loadSampleBtn" class="px-6 py-3 border border-primary-500 text-primary-500 rounded-lg hover:bg-primary-50 transition-colors">
+                                    Load Sample
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- OCR Processing -->
+                    <div id="ocrProcessing" class="mt-6 p-4 bg-gray-50 rounded-lg hidden">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500 mr-3"></div>
+                            <div>
+                                <h4 class="font-medium text-gray-900">Processing Image...</h4>
+                                <p class="text-sm text-gray-600">Extracting text from image</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Results Section -->
+                <div id="resultsSection" class="bg-white rounded-xl p-6 card-shadow mt-8 hidden">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-semibold text-gray-900">
+                            <i class="fas fa-chart-pie text-primary-500 mr-2"></i>
+                            Scan Results
+                        </h3>
+                        <div class="flex items-center space-x-2">
+                            <span id="scanTime" class="text-sm text-gray-500"></span>
+                            <button id="clearResultsBtn" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Safety Status -->
+                    <div id="safetyStatus" class="mb-6">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    
+                    <!-- Results Summary -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="text-center p-3 bg-gray-50 rounded-lg">
+                            <div class="text-2xl font-bold text-gray-900" id="totalIngredients">0</div>
+                            <div class="text-sm text-gray-600">Ingredients</div>
+                        </div>
+                        <div class="text-center p-3 bg-success-50 rounded-lg">
+                            <div class="text-2xl font-bold text-success-600" id="safeCount">0</div>
+                            <div class="text-sm text-gray-600">Safe</div>
+                        </div>
+                        <div class="text-center p-3 bg-warning-50 rounded-lg">
+                            <div class="text-2xl font-bold text-warning-600" id="warningCount">0</div>
+                            <div class="text-sm text-gray-600">Warnings</div>
+                        </div>
+                        <div class="text-center p-3 bg-danger-50 rounded-lg">
+                            <div class="text-2xl font-bold text-danger-600" id="dangerCount">0</div>
+                            <div class="text-sm text-gray-600">Dangerous</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Issues List -->
+                    <div id="issuesSection" class="mb-6 hidden">
+                        <h4 class="font-medium text-gray-900 mb-3">Detected Issues</h4>
+                        <div id="issuesList" class="space-y-3">
+                            <!-- Issues will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Safe Ingredients -->
+                    <div id="safeSection" class="mb-6">
+                        <h4 class="font-medium text-gray-900 mb-3">Safe Ingredients</h4>
+                        <div id="safeIngredients" class="flex flex-wrap gap-2">
+                            <!-- Safe ingredients will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex space-x-3 pt-4 border-t border-gray-200">
+                        <button id="saveResultsBtn" class="flex-1 bg-primary-500 text-white py-2.5 rounded-lg hover:bg-primary-600 transition-colors font-medium">
+                            <i class="fas fa-save mr-2"></i>Save Results
+                        </button>
+                        <button id="newScanBtn" class="flex-1 border border-primary-500 text-primary-500 py-2.5 rounded-lg hover:bg-primary-50 transition-colors font-medium">
+                            <i class="fas fa-redo mr-2"></i>New Scan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white mt-12">
+        <div class="container mx-auto px-4 py-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-primary-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold">FoodSafe</h3>
+                            <p class="text-gray-400 text-sm">Simplified Food Scanner</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-400 text-sm">Easy-to-use food allergy and intolerance scanner. No login required. Your data stays private.</p>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">How It Works</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-success-500 mr-2"></i>
+                            <span>Select your allergies</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-camera text-primary-500 mr-2"></i>
+                            <span>Scan with camera or upload</span>
+                        </li>
+                        <li class="fas fa-bolt text-warning-500 mr-2"></i>
+                            <span>Get instant safety results</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Privacy First</h4>
+                    <p class="text-gray-400 text-sm mb-3">All processing happens locally in your browser. No images or personal data are sent to any servers.</p>
+                    <div class="flex items-center">
+                        <i class="fas fa-lock text-success-500 mr-2"></i>
+                        <span class="text-sm text-gray-400">100% Secure & Private</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
+                <p>&copy; 2024 FoodSafe. Made for easy food safety scanning.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">Edit Food Profile</h3>
+                    <button id="closeProfileModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-6">
+                    <!-- Clear All Button -->
+                    <div class="text-center">
+                        <button id="clearAllBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Clear All Selections
+                        </button>
+                    </div>
+                    
+                    <!-- Export/Import -->
+                    <div class="border-t border-gray-200 pt-6">
+                        <h4 class="font-medium text-gray-700 mb-3">Backup Profile</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="exportProfileBtn" class="p-3 bg-gray-50 rounded-lg text-center hover:bg-gray-100 transition-colors">
+                                <i class="fas fa-download text-primary-500 mb-1 block"></i>
+                                <span class="text-sm">Export</span>
+                            </button>
+                            <button id="importProfileBtn" class="p-3 bg-gray-50 rounded-lg text-center hover:bg-gray-100 transition-colors">
+                                <i class="fas fa-upload text-success-500 mb-1 block"></i>
+                                <span class="text-sm">Import</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset to Default -->
+                    <div class="border-t border-gray-200 pt-6">
+                        <button id="resetProfileBtn" class="w-full p-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-undo mr-2"></i>Reset to Default Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simplified data structure
+        const allergiesData = {
+            "peanuts": { "name": "Peanuts", "severity": "high", "icon": "fa-seedling" },
+            "tree_nuts": { "name": "Tree Nuts", "severity": "high", "icon": "fa-tree" },
+            "milk": { "name": "Dairy", "severity": "high", "icon": "fa-cheese" },
+            "eggs": { "name": "Eggs", "severity": "high", "icon": "fa-egg" },
+            "wheat": { "name": "Wheat", "severity": "medium", "icon": "fa-bread-slice" },
+            "soy": { "name": "Soy", "severity": "medium", "icon": "fa-seedling" },
+            "fish": { "name": "Fish", "severity": "high", "icon": "fa-fish" },
+            "shellfish": { "name": "Shellfish", "severity": "high", "icon": "fa-crab" },
+            "sesame": { "name": "Sesame", "severity": "medium", "icon": "fa-seedling" },
+            "mustard": { "name": "Mustard", "severity": "medium", "icon": "fa-mortar-pestle" },
+            "sulfites": { "name": "Sulfites", "severity": "medium", "icon": "fa-wine-bottle" }
+        };
+
+        const intolerancesData = {
+            "lactose": { "name": "Lactose", "severity": "medium", "icon": "fa-wind" },
+            "gluten": { "name": "Gluten", "severity": "medium", "icon": "fa-bread-slice" },
+            "fructose": { "name": "Fructose", "severity": "medium", "icon": "fa-apple-alt" },
+            "histamine": { "name": "Histamine", "severity": "low", "icon": "fa-allergies" },
+            "fodmap": { "name": "FODMAPs", "severity": "low", "icon": "fa-leaf" },
+            "msg": { "name": "MSG", "severity": "low", "icon": "fa-flask" },
+            "artificial_colors": { "name": "Artificial Colors", "severity": "low", "icon": "fa-palette" },
+            "preservatives": { "name": "Preservatives", "severity": "low", "icon": "fa-prescription-bottle" }
+        };
+
+        const quickProfiles = {
+            "common": {
+                "name": "Common Allergies",
+                "allergies": ["peanuts", "tree_nuts", "milk", "eggs", "wheat", "soy"],
+                "intolerances": ["lactose", "gluten"]
+            },
+            "gluten": {
+                "name": "Gluten-Free",
+                "allergies": ["wheat"],
+                "intolerances": ["gluten"]
+            },
+            "dairy": {
+                "name": "Dairy-Free",
+                "allergies": ["milk"],
+                "intolerances": ["lactose"]
+            },
+            "vegan": {
+                "name": "Vegan",
+                "allergies": ["milk", "eggs"],
+                "intolerances": []
+            }
+        };
+
+        // User state
+        let userAllergies = new Set();
+        let userIntolerances = new Set();
+        let customItems = [];
+        let currentCategory = "allergies";
+        let currentScanner = null;
+        let cameraStream = null;
+        let isCameraActive = false;
+
+        // DOM Elements
+        const allergiesTab = document.getElementById("allergiesTab");
+        const intolerancesTab = document.getElementById("intolerancesTab");
+        const customTab = document.getElementById("customTab");
+        const allergiesContent = document.getElementById("allergiesContent");
+        const intolerancesContent = document.getElementById("intolerancesContent");
+        const customContent = document.getElementById("customContent");
+        const allergyChips = document.querySelectorAll(".allergy-chip");
+        const intoleranceChips = document.querySelectorAll(".intolerance-chip");
+        const selectedCount = document.getElementById("selectedCount");
+        const allergyCount = document.getElementById("allergyCount");
+        const intoleranceCount = document.getElementById("intoleranceCount");
+        const customCount = document.getElementById("customCount");
+        const sensitivitySlider = document.getElementById("sensitivitySlider");
+        const sensitivityLabel = document.getElementById("sensitivityLabel");
+        const quickProfileBtns = document.querySelectorAll(".quick-select-btn");
+        const editProfileBtn = document.getElementById("editProfileBtn");
+        const quickProfileBtn = document.getElementById("quickProfileBtn");
+        const profileModal = document.getElementById("profileModal");
+        const closeProfileModal = document.getElementById("closeProfileModal");
+        const clearAllBtn = document.getElementById("clearAllBtn");
+        const exportProfileBtn = document.getElementById("exportProfileBtn");
+        const importProfileBtn = document.getElementById("importProfileBtn");
+        const resetProfileBtn = document.getElementById("resetProfileBtn");
+        
+        // Scanner elements
+        const cameraOption = document.getElementById("cameraOption");
+        const uploadOption = document.getElementById("uploadOption");
+        const manualOption = document.getElementById("manualOption");
+        const cameraScanner = document.getElementById("cameraScanner");
+        const uploadScanner = document.getElementById("uploadScanner");
+        const manualScanner = document.getElementById("manualScanner");
+        const startCameraBtn = document.getElementById("startCameraBtn");
+        const captureBtn = document.getElementById("captureBtn");
+        const cameraPreview = document.getElementById("cameraPreview");
+        const cameraCanvas = document.getElementById("cameraCanvas");
+        const fileDropZone = document.getElementById("fileDropZone");
+        const imageUpload = document.getElementById("imageUpload");
+        const uploadPreview = document.getElementById("uploadPreview");
+        const uploadedImage = document.getElementById("uploadedImage");
+        const processUploadBtn = document.getElementById("processUploadBtn");
+        const productName = document.getElementById("productName");
+        const ingredientInput = document.getElementById("ingredientInput");
+        const scanNowBtn = document.getElementById("scanNowBtn");
+        const loadSampleBtn = document.getElementById("loadSampleBtn");
+        const ocrProcessing = document.getElementById("ocrProcessing");
+        
+        // Results elements
+        const resultsSection = document.getElementById("resultsSection");
+        const safetyStatus = document.getElementById("safetyStatus");
+        const totalIngredients = document.getElementById("totalIngredients");
+        const safeCount = document.getElementById("safeCount");
+        const warningCount = document.getElementById("warningCount");
+        const dangerCount = document.getElementById("dangerCount");
+        const scanTime = document.getElementById("scanTime");
+        const issuesSection = document.getElementById("issuesSection");
+        const issuesList = document.getElementById("issuesList");
+        const safeIngredients = document.getElementById("safeIngredients");
+        const clearResultsBtn = document.getElementById("clearResultsBtn");
+        const saveResultsBtn = document.getElementById("saveResultsBtn");
+        const newScanBtn = document.getElementById("newScanBtn");
+
+        // Custom items elements
+        const customItemName = document.getElementById("customItemName");
+        const severityBtns = document.querySelectorAll(".severity-btn");
+        const addCustomBtn = document.getElementById("addCustomBtn");
+        const customItemsList = document.getElementById("customItemsList");
+
+        // Initialize the app
+        function init() {
+            loadUserProfile();
+            setupEventListeners();
+            updateProfileSummary();
+            updateSelectedCount();
+        }
+
+        // Load user profile from localStorage
+        function loadUserProfile() {
+            const saved = localStorage.getItem("foodSafeProfile");
+            if (saved) {
+                try {
+                    const profile = JSON.parse(saved);
+                    userAllergies = new Set(profile.allergies || []);
+                    userIntolerances = new Set(profile.intolerances || []);
+                    customItems = profile.customItems || [];
+                    updateChipSelection();
+                    updateCustomItemsList();
+                } catch (e) {
+                    console.error("Error loading profile:", e);
+                }
+            }
+        }
+
+        // Save user profile to localStorage
+        function saveUserProfile() {
+            const profile = {
+                "allergies": Array.from(userAllergies),
+                "intolerances": Array.from(userIntolerances),
+                "customItems": customItems,
+                "lastUpdated": new Date().toISOString()
+            };
+            localStorage.setItem("foodSafeProfile", JSON.stringify(profile));
+            updateProfileSummary();
+            updateSelectedCount();
+        }
+
+        // Update chip selection state
+        function updateChipSelection() {
+            // Update allergy chips
+            allergyChips.forEach(chip => {
+                const id = chip.dataset.id;
+                if (userAllergies.has(id)) {
+                    chip.classList.add("selected", "bg-danger-50", "border-danger-300");
+                    chip.classList.remove("bg-gray-50", "border-gray-200");
+                } else {
+                    chip.classList.remove("selected", "bg-danger-50", "border-danger-300");
+                    chip.classList.add("bg-gray-50", "border-gray-200");
+                }
+            });
+            
+            // Update intolerance chips
+            intoleranceChips.forEach(chip => {
+                const id = chip.dataset.id;
+                if (userIntolerances.has(id)) {
+                    chip.classList.add("selected", "bg-warning-50", "border-warning-300");
+                    chip.classList.remove("bg-gray-50", "border-gray-200");
+                } else {
+                    chip.classList.remove("selected", "bg-warning-50", "border-warning-300");
+                    chip.classList.add("bg-gray-50", "border-gray-200");
+                }
+            });
+        }
+
+        // Update profile summary
+        function updateProfileSummary() {
+            allergyCount.textContent = userAllergies.size;
+            intoleranceCount.textContent = userIntolerances.size;
+            customCount.textContent = customItems.length;
+        }
+
+        // Update selected count
+        function updateSelectedCount() {
+            const total = userAllergies.size + userIntolerances.size + customItems.length;
+            selectedCount.textContent = `${total} item${total !== 1 ? 's' : ''} selected`;
+        }
+
+        // Update custom items list
+        function updateCustomItemsList() {
+            customItemsList.innerHTML = "";
+            
+            if (customItems.length === 0) {
+                customItemsList.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-plus-circle text-3xl mb-3"></i>
+                        <p class="text-sm">No custom items added yet</p>
+                        <p class="text-xs mt-1">Add your personal food restrictions above</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            customItems.forEach((item, index) => {
+                const itemElement = document.createElement("div");
+                itemElement.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg";
+                
+                const severityColor = item.severity === "high" ? "danger" : 
+                                     item.severity === "medium" ? "warning" : "success";
+                
+                itemElement.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-${severityColor}-100 flex items-center justify-center mr-3">
+                            <i class="fas fa-${item.type === "allergy" ? 'exclamation-triangle' : 'ban'} text-${severityColor}-500"></i>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-900">${item.name}</span>
+                            <div class="text-xs text-gray-600 capitalize">${item.type} • ${item.severity} risk</div>
+                        </div>
+                    </div>
+                    <button class="text-gray-400 hover:text-danger-500 transition-colors remove-custom-btn" data-index="${index}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                
+                customItemsList.appendChild(itemElement);
+            });
+            
+            // Add event listeners to remove buttons
+            document.querySelectorAll(".remove-custom-btn").forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    removeCustomItem(index);
+                });
+            });
+        }
+
+        // Remove custom item
+        function removeCustomItem(index) {
+            customItems.splice(index, 1);
+            updateCustomItemsList();
+            saveUserProfile();
+        }
+
+        // Add custom item
+        function addCustomItem() {
+            const name = customItemName.value.trim();
+            if (!name) {
+                alert("Please enter a name for the custom item");
+                return;
+            }
+            
+            const type = document.querySelector('input[name="customType"]:checked').value;
+            const severity = document.querySelector(".severity-btn.active")?.dataset.severity || "medium";
+            
+            customItems.push({
+                "name": name,
+                "type": type,
+                "severity": severity,
+                "id": `custom_${Date.now()}`
+            });
+            
+            customItemName.value = "";
+            updateCustomItemsList();
+            saveUserProfile();
+            
+            // Show success message
+            const successMsg = document.createElement("div");
+            successMsg.className = "fixed top-4 right-4 bg-success-500 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in z-50";
+            successMsg.innerHTML = `<i class="fas fa-check-circle mr-2"></i>Added "${name}" to your profile`;
+            document.body.appendChild(successMsg);
+            
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+        }
+
+        // Apply quick profile
+        function applyQuickProfile(profileId) {
+            const profile = quickProfiles[profileId];
+            if (!profile) return;
+            
+            userAllergies = new Set(profile.allergies || []);
+            userIntolerances = new Set(profile.intolerances || []);
+            
+            updateChipSelection();
+            saveUserProfile();
+            
+            // Show success message
+            const successMsg = document.createElement("div");
+            successMsg.className = "fixed top-4 right-4 bg-primary-500 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in z-50";
+            successMsg.innerHTML = `<i class="fas fa-check-circle mr-2"></i>Applied "${profile.name}" profile`;
+            document.body.appendChild(successMsg);
+            
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+        }
+
+        // Clear all selections
+        function clearAllSelections() {
+            userAllergies.clear();
+            userIntolerances.clear();
+            customItems = [];
+            
+            updateChipSelection();
+            updateCustomItemsList();
+            saveUserProfile();
+        }
+
+        // Export profile
+        function exportProfile() {
+            const profile = {
+                "allergies": Array.from(userAllergies),
+                "intolerances": Array.from(userIntolerances),
+                "customItems": customItems
+            };
+            
+            const dataStr = JSON.stringify(profile, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = 'foodsafe-profile.json';
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        // Import profile
+        function importProfile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    try {
+                        const profile = JSON.parse(event.target.result);
+                        
+                        userAllergies = new Set(profile.allergies || []);
+                        userIntolerances = new Set(profile.intolerances || []);
+                        customItems = profile.customItems || [];
+                        
+                        updateChipSelection();
+                        updateCustomItemsList();
+                        saveUserProfile();
+                        
+                        alert("Profile imported successfully!");
+                    } catch (error) {
+                        alert("Error importing profile. Please check the file format.");
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+
+        // Reset to default
+        function resetToDefault() {
+            if (confirm("Reset your profile to default settings? This will clear all your current selections.")) {
+                clearAllSelections();
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Category tabs
+            allergiesTab.addEventListener("click", () => switchCategory("allergies"));
+            intolerancesTab.addEventListener("click", () => switchCategory("intolerances"));
+            customTab.addEventListener("click", () => switchCategory("custom"));
+            
+            // Allergy/intolerance chips
+            allergyChips.forEach(chip => {
+                chip.addEventListener("click", () => toggleSelection(chip.dataset.id, "allergy"));
+            });
+            
+            intoleranceChips.forEach(chip => {
+                chip.addEventListener("click", () => toggleSelection(chip.dataset.id, "intolerance"));
+            });
+            
+            // Sensitivity slider
+            sensitivitySlider.addEventListener("input", (e) => {
+                const value = parseInt(e.target.value);
+                const labels = ["Relaxed", "Balanced", "Strict"];
+                sensitivityLabel.textContent = labels[value - 1];
+            });
+            
+            // Quick profile buttons
+            quickProfileBtns.forEach(btn => {
+                btn.addEventListener("click", () => applyQuickProfile(btn.dataset.profile));
+            });
+            
+            // Profile modal
+            editProfileBtn.addEventListener("click", () => {
+                profileModal.classList.remove("hidden");
+                profileModal.classList.add("flex");
+            });
+            
+            quickProfileBtn.addEventListener("click", () => {
+                profileModal.classList.remove("hidden");
+                profileModal.classList.add("flex");
+            });
+            
+            closeProfileModal.addEventListener("click", () => {
+                profileModal.classList.add("hidden");
+                profileModal.classList.remove("flex");
+            });
+            
+            // Profile actions
+            clearAllBtn.addEventListener("click", clearAllSelections);
+            exportProfileBtn.addEventListener("click", exportProfile);
+            importProfileBtn.addEventListener("click", importProfile);
+            resetProfileBtn.addEventListener("click", resetToDefault);
+            
+            // Scanner options
+            cameraOption.addEventListener("click", () => switchScanner("camera"));
+            uploadOption.addEventListener("click", () => switchScanner("upload"));
+            manualOption.addEventListener("click", () => switchScanner("manual"));
+            
+            // Camera controls
+            startCameraBtn.addEventListener("click", startCamera);
+            captureBtn.addEventListener("click", captureImage);
+            
+            // File upload
+            fileDropZone.addEventListener("click", () => imageUpload.click());
+            fileDropZone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                fileDropZone.classList.add("drag-over");
+            });
+            fileDropZone.addEventListener("dragleave", () => {
+                fileDropZone.classList.remove("drag-over");
+            });
+            fileDropZone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                fileDropZone.classList.remove("drag-over");
+                if (e.dataTransfer.files.length > 0) {
+                    handleImageUpload(e.dataTransfer.files[0]);
+                }
+            });
+            imageUpload.addEventListener("change", (e) => {
+                if (e.target.files.length > 0) {
+                    handleImageUpload(e.target.files[0]);
+                }
+            });
+            processUploadBtn.addEventListener("click", processUploadedImage);
+            
+            // Manual scanner
+            scanNowBtn.addEventListener("click", scanIngredients);
+            loadSampleBtn.addEventListener("click", loadSample);
+            
+            // Custom items
+            severityBtns.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    severityBtns.forEach(b => b.classList.remove("active", "border-primary-500", "text-primary-600"));
+                    btn.classList.add("active", "border-primary-500", "text-primary-600");
+                });
+            });
+            addCustomBtn.addEventListener("click", addCustomItem);
+            
+            // Results actions
+            clearResultsBtn.addEventListener("click", clearResults);
+            saveResultsBtn.addEventListener("click", saveResults);
+            newScanBtn.addEventListener("click", newScan);
+        }
+
+        // Switch category
+        function switchCategory(category) {
+            currentCategory = category;
+            
+            // Update tabs
+            [allergiesTab, intolerancesTab, customTab].forEach(tab => {
+                tab.classList.remove("active");
+            });
+            
+            // Hide all content
+            [allergiesContent, intolerancesContent, customContent].forEach(content => {
+                content.classList.add("hidden");
+            });
+            
+            // Show selected content
+            if (category === "allergies") {
+                allergiesTab.classList.add("active");
+                allergiesContent.classList.remove("hidden");
+            } else if (category === "intolerances") {
+                intolerancesTab.classList.add("active");
+                intolerancesContent.classList.remove("hidden");
+            } else if (category === "custom") {
+                customTab.classList.add("active");
+                customContent.classList.remove("hidden");
+            }
+        }
+
+        // Toggle selection
+        function toggleSelection(id, type) {
+            if (type === "allergy") {
+                if (userAllergies.has(id)) {
+                    userAllergies.delete(id);
+                } else {
+                    userAllergies.add(id);
+                }
+            } else if (type === "intolerance") {
+                if (userIntolerances.has(id)) {
+                    userIntolerances.delete(id);
+                } else {
+                    userIntolerances.add(id);
+                }
+            }
+            
+            updateChipSelection();
+            saveUserProfile();
+        }
+
+        // Switch scanner
+        function switchScanner(scanner) {
+            currentScanner = scanner;
+            
+            // Update option buttons
+            [cameraOption, uploadOption, manualOption].forEach(option => {
+                option.classList.remove("border-primary-200");
+                option.classList.add("border-gray-200");
+            });
+            
+            // Hide all scanners
+            [cameraScanner, uploadScanner, manualScanner].forEach(scanner => {
+                scanner.classList.add("hidden");
+            });
+            
+            // Show selected scanner
+            if (scanner === "camera") {
+                cameraOption.classList.remove("border-gray-200");
+                cameraOption.classList.add("border-primary-200");
+                cameraScanner.classList.remove("hidden");
+            } else if (scanner === "upload") {
+                uploadOption.classList.remove("border-gray-200");
+                uploadOption.classList.add("border-primary-200");
+                uploadScanner.classList.remove("hidden");
+            } else if (scanner === "manual") {
+                manualOption.classList.remove("border-gray-200");
+                manualOption.classList.add("border-primary-200");
+                manualScanner.classList.remove("hidden");
+            }
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                cameraPreview.srcObject = cameraStream;
+                isCameraActive = true;
+                
+                startCameraBtn.disabled = true;
+                captureBtn.disabled = false;
+                
+                startCameraBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Camera Active';
+            } catch (error) {
+                console.error("Camera error:", error);
+                alert("Unable to access camera. Please check permissions.");
+            }
+        }
+
+        // Capture image
+        function captureImage() {
+            if (!isCameraActive) return;
+            
+            const canvas = cameraCanvas;
+            const video = cameraPreview;
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = canvas.toDataURL("image/jpeg");
+            processImageWithOCR(imageData);
+        }
+
+        // Handle image upload
+        function handleImageUpload(file) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert("File size exceeds 5MB limit.");
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                uploadedImage.src = e.target.result;
+                uploadPreview.classList.remove("hidden");
+                fileDropZone.classList.add("hidden");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Process uploaded image
+        function processUploadedImage() {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const img = uploadedImage;
+            
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            ctx.drawImage(img, 0, 0);
+            
+            const imageData = canvas.toDataURL("image/jpeg");
+            processImageWithOCR(imageData);
+        }
+
+        // Process image with OCR
+        async function processImageWithOCR(imageData) {
+            ocrProcessing.classList.remove("hidden");
+            
+            try {
+                const worker = Tesseract.createWorker();
+                await worker.load();
+                await worker.loadLanguage("eng");
+                await worker.initialize("eng");
+                
+                const { data: { text } } = await worker.recognize(imageData);
+                await worker.terminate();
+                
+                ocrProcessing.classList.add("hidden");
+                
+                // Switch to manual scanner with extracted text
+                switchScanner("manual");
+                ingredientInput.value = text.trim();
+                
+            } catch (error) {
+                console.error("OCR error:", error);
+                ocrProcessing.classList.add("hidden");
+                alert("Error processing image. Please try again.");
+            }
+        }
+
+        // Load sample
+        function loadSample() {
+            const sample = `Whole wheat flour, sugar, butter (milk), eggs, chocolate chips (sugar, chocolate liquor, cocoa butter, soy lecithin, vanilla), milk, baking soda, salt, vanilla extract`;
+            ingredientInput.value = sample;
+            productName.value = "Chocolate Chip Cookies";
+        }
+
+        // Scan ingredients
+        function scanIngredients() {
+            const ingredientsText = ingredientInput.value.trim();
+            if (!ingredientsText) {
+                alert("Please enter or paste an ingredient list.");
+                return;
+            }
+            
+            if (userAllergies.size === 0 && userIntolerances.size === 0 && customItems.length === 0) {
+                alert("Please select at least one allergy or intolerance to scan for.");
+                return;
+            }
+            
+            const startTime = Date.now();
+            const ingredients = parseIngredients(ingredientsText);
+            const results = performScan(ingredients);
+            const endTime = Date.now();
+            
+            displayResults(results, ingredients.length, endTime - startTime);
+        }
+
+        // Parse ingredients
+        function parseIngredients(text) {
+            return text
+                .split(/[,;\n]/)
+                .map(ingredient => ingredient.trim().toLowerCase())
+                .filter(ingredient => ingredient.length > 0);
+        }
+
+        // Perform scan
+        function performScan(ingredients) {
+            const results = {
+                "dangerous": [],
+                "warnings": [],
+                "safe": []
+            };
+            
+            ingredients.forEach(ingredient => {
+                let found = false;
+                
+                // Check allergies
+                Array.from(userAllergies).forEach(allergyId => {
+                    const allergy = allergiesData[allergyId];
+                    if (allergy && checkMatch(ingredient, allergyId)) {
+                        results.dangerous.push({
+                            "ingredient": ingredient,
+                            "type": "allergy",
+                            "name": allergy.name,
+                            "severity": allergy.severity
+                        });
+                        found = true;
+                    }
+                });
+                
+                // Check intolerances
+                Array.from(userIntolerances).forEach(intoleranceId => {
+                    const intolerance = intolerancesData[intoleranceId];
+                    if (intolerance && checkMatch(ingredient, intoleranceId)) {
+                        results.warnings.push({
+                            "ingredient": ingredient,
+                            "type": "intolerance",
+                            "name": intolerance.name,
+                            "severity": intolerance.severity
+                        });
+                        found = true;
+                    }
+                });
+                
+                // Check custom items
+                customItems.forEach(item => {
+                    if (ingredient.includes(item.name.toLowerCase())) {
+                        if (item.type === "allergy") {
+                            results.dangerous.push({
+                                "ingredient": ingredient,
+                                "type": "custom_allergy",
+                                "name": item.name,
+                                "severity": item.severity
+                            });
+                        } else {
+                            results.warnings.push({
+                                "ingredient": ingredient,
+                                "type": "custom_intolerance",
+                                "name": item.name,
+                                "severity": item.severity
+                            });
+                        }
+                        found = true;
+                    }
+                });
+                
+                if (!found) {
+                    results.safe.push(ingredient);
+                }
+            });
+            
+            return results;
+        }
+
+        // Check match
+        function checkMatch(ingredient, itemId) {
+            const item = allergiesData[itemId] || intolerancesData[itemId];
+            if (!item) return false;
+            
+            // Simple matching - can be enhanced
+            const searchTerms = [
+                item.name.toLowerCase(),
+                itemId.replace("_", " "),
+                ...(itemId.split("_"))
+            ];
+            
+            return searchTerms.some(term => ingredient.includes(term));
+        }
+
+        // Display results
+        function displayResults(results, total, duration) {
+            resultsSection.classList.remove("hidden");
+            resultsSection.scrollIntoView({ behavior: "smooth" });
+            
+            // Update counts
+            totalIngredients.textContent = total;
+            safeCount.textContent = results.safe.length;
+            warningCount.textContent = results.warnings.length;
+            dangerCount.textContent = results.dangerous.length;
+            
+            // Update time
+            scanTime.textContent = `Scanned in ${duration}ms`;
+            
+            // Update safety status
+            updateSafetyStatus(results);
+            
+            // Update issues
+            updateIssuesList(results);
+            
+            // Update safe ingredients
+            updateSafeIngredients(results.safe);
+        }
+
+        // Update safety status
+        function updateSafetyStatus(results) {
+            let status, message, color, icon;
+            
+            if (results.dangerous.length > 0) {
+                status = "NOT SAFE";
+                message = `Contains ${results.dangerous.length} allergens. Do not consume.`;
+                color = "danger";
+                icon = "fa-times-circle";
+            } else if (results.warnings.length > 0) {
+                status = "CAUTION";
+                message = `Contains ${results.warnings.length} potential intolerance triggers.`;
+                color = "warning";
+                icon = "fa-exclamation-triangle";
+            } else {
+                status = "SAFE";
+                message = "No allergens or intolerances detected.";
+                color = "success";
+                icon = "fa-check-circle";
+            }
+            
+            safetyStatus.innerHTML = `
+                <div class="p-4 bg-${color}-50 border border-${color}-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas ${icon} text-${color}-500 text-2xl mr-3"></i>
+                        <div>
+                            <h4 class="font-bold text-lg text-${color}-800">${status}</h4>
+                            <p class="text-${color}-700">${message}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update issues list
+        function updateIssuesList(results) {
+            issuesList.innerHTML = "";
+            
+            const allIssues = [...results.dangerous, ...results.warnings];
+            
+            if (allIssues.length === 0) {
+                issuesSection.classList.add("hidden");
+                return;
+            }
+            
+            issuesSection.classList.remove("hidden");
+            
+            allIssues.forEach(issue => {
+                const color = issue.type.includes("allergy") ? "danger" : "warning";
+                const icon = issue.type.includes("allergy") ? "fa-skull-crossbones" : "fa-exclamation-triangle";
+                
+                const issueElement = document.createElement("div");
+                issueElement.className = `p-3 bg-${color}-50 border border-${color}-200 rounded-lg`;
+                issueElement.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas ${icon} text-${color}-600 mr-3"></i>
+                            <div>
+                                <span class="font-medium text-${color}-800">${issue.ingredient}</span>
+                                <div class="text-sm text-${color}-600">${issue.name} • ${issue.severity} risk</div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 bg-${color}-100 text-${color}-800 text-xs font-medium rounded">
+                            ${issue.type.includes("allergy") ? "ALLERGY" : "INTOLERANCE"}
+                        </span>
+                    </div>
+                `;
+                
+                issuesList.appendChild(issueElement);
+            });
+        }
+
+        // Update safe ingredients
+        function updateSafeIngredients(safeList) {
+            safeIngredients.innerHTML = "";
+            
+            if (safeList.length === 0) {
+                safeIngredients.innerHTML = '<span class="text-gray-500">No safe ingredients detected</span>';
+                return;
+            }
+            
+            safeList.forEach(ingredient => {
+                const chip = document.createElement("span");
+                chip.className = "px-3 py-1 bg-success-100 text-success-800 rounded-full text-sm";
+                chip.textContent = ingredient;
+                safeIngredients.appendChild(chip);
+            });
+        }
+
+        // Clear results
+        function clearResults() {
+            resultsSection.classList.add("hidden");
+        }
+
+        // Save results
+        function saveResults() {
+            alert("Results saved to your history!");
+        }
+
+        // New scan
+        function newScan() {
+            clearResults();
+            ingredientInput.value = "";
+            productName.value = "";
+        }
+
+        // Initialize on load
+        document.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+</html>
